@@ -1,0 +1,135 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Aug 24 16:33:08 2021
+
+@author: AGVA
+"""
+
+
+# evaluate an xgboost regression model on the housing dataset
+import pandas as pd
+import klib
+from sklearn.metrics import f1_score
+#from numpy import mean
+import matplotlib.pyplot as plt
+from sklearn import metrics
+from xgboost import XGBClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score,classification_report
+from sklearn.metrics import roc_curve
+#from sklearn.model_selection import cross_val_score
+from sklearn.metrics import roc_auc_score
+from matplotlib import pyplot
+from sklearn.datasets import make_classification
+from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import f_classif,mutual_info_classif,chi2
+# generate dataset
+#X, y = make_classification(n_samples=100, n_features=20, n_informative=2)
+# define feature selection
+fs = SelectKBest(score_func=f_classif, k=2)
+# apply feature selection
+
+df= pd.read_excel(r'C:\Users\AGVA\Downloads\export_dataframe_newds.xls')
+
+
+#DF=df[['pao2','pf',
+           
+#          'gender_F', 'gender_M', 'fio2_scaler', 'spo2_scaler', 'hr_scaler',
+#          'temp_scaler', 'rr_scaler',
+ #        'tv_scaler', 'mv_scaler', 'pip_scaler', 'plap_scaler', 'map_scaler',
+  #        'peep_scaler',
+   #        'age_scaler', 
+    #      'sf_scaler', 'osi_scaler', 'bmi_scaler',
+     #     'tv_kg_scaler', 
+      #    'pfclass_four' ]]
+DF=df[['pf','pao2', 'sf','osi','fio2','bmi','spo2','tv_kg','map', 'peep','plap','pip','mv','rr','age','tv','temp', 'hr', 'gender_F', 'gender_M', 'pfclass_four']] 
+print(DF.columns)
+col=DF.columns
+DF.dropna(inplace=True)
+
+#DF.head()
+
+print(DF.iloc[:,-1].value_counts())
+#klib.missingval_plot(DF)
+#klib.corr_plot(DF, split='pos') # displaying only positive correlations, 
+#klib.corr_plot(DF, split='neg') # displaying only negative correlations
+#klib.dist_plot(DF)              # default representation of a distribution plot, 
+#klib.dist_plot(DF)              # default representation of a distribution plot, 
+
+X, y = DF.iloc[:,:-1],DF.iloc[:,-1]
+#X_selected = fs.fit_transform(X, y)
+#print(X_selected.shape)
+
+seed = 7
+test_size = 0.33
+#X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=seed)
+
+
+
+
+def select_features(X_train, y_train, X_test):
+	# configure to select all features
+	fs = SelectKBest(score_func=mutual_info_classif, k='all')
+	# learn relationship from training data
+	fs.fit(X_train, y_train)
+	# transform train input data
+	X_train_fs = fs.transform(X_train)
+	# transform test input data
+	X_test_fs = fs.transform(X_test)
+	return X_train_fs, X_test_fs, fs
+ 
+
+# split into train and test sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=1)
+# feature selection
+X_train_fs, X_test_fs, fs = select_features(X_train, y_train, X_test)
+# what are scores for the features
+for i in range(len(fs.scores_)):
+#rint('Feature %d: %f' % (i,fs.scores_[i]))
+#   print('Feature %d:%sf' % (i,fs.scores_[i]))
+    print('features %d: %s %f'%(i,col[i],fs.scores_[i]))
+
+# plot the scores
+pyplot.bar([i for i in range(len(fs.scores_))], fs.scores_)
+pyplot.show()
+
+
+model = XGBClassifier()
+model.fit(X_train, y_train)
+print(model)
+print(DF.pfclass_four.value_counts())
+
+
+y_pred = model.predict(X_test)
+predictions = [round(value) for value in y_pred]
+
+
+
+
+
+# evaluate predictions
+accuracy = accuracy_score(y_test, predictions)
+print("Accuracy: %.2f%%" % (accuracy * 100.0))
+print("f1 score",f1_score(y_test,predictions,average='weighted')*100,"%")
+print(classification_report(y_pred,y_test))
+
+
+y_pred_proba = model.predict_proba(X_test)[::,1]
+fpr, tpr, _ = metrics.roc_curve(y_test,  y_pred_proba)
+auc = metrics.roc_auc_score(y_test, y_pred_proba)
+plt.plot(fpr,tpr,label="data 1, auc="+str(auc))
+plt.legend(loc=4)
+plt.show()
+#cv = RepeatedStratifiedKFold(n_splits=10, n_repeats=3, random_state=1)
+# evaluate model
+#scores = cross_val_score(model, X, y, scoring='roc_auc', cv=cv, n_jobs=-1)
+#print("Accuracy: %.2f%%" % (accuracy * 100.0))
+# summarize performance
+
+#print('Mean ROC AUC: %.5f' % mean(scores))
+#model = XGBRegressor()
+#cv = RepeatedKFold(n_splits=10, n_repeats=3, random_state=1)
+#scores = cross_val_score(model, X, y, scoring='neg_mean_absolute_error', cv=cv, n_jobs=-1)
+#scores = absolute(scores)
+#print('Mean MAE: %.3f (%.3f)' % (scores.mean(), scores.std()) )
+#plt.plot(X,y)
